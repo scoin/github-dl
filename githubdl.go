@@ -6,7 +6,6 @@ import (
     "fmt"
     "os/exec"
     "encoding/json"
-    "encoding/base64"
     "bufio"
     "io/ioutil"
     "unicode/utf8"
@@ -20,9 +19,10 @@ func main() {
 
     if(len(repos) > 0){
         termbox.Init()
+        termbox.Sync()
         defer termbox.Close()
         termbox.SetInputMode(termbox.InputEsc)
-        viewRepos(repos)
+        viewRepos(repos, p)
     } else {
         fmt.Println("Usage: github-dl [-search <repository>] [-in <name,description,readme>] [-user <user>] [-lang <language>] [-stars <min..max>] [-size <min..max>] [-showforks <true/only>] [-sort <field>] [-order <asc/desc>]")
     }
@@ -40,11 +40,12 @@ func getFlagParams() githubdl.Params {
     p.User = flag.String("user", "", "")
     p.Stars = flag.String("stars", "", "")
     p.In = flag.String("in", "", "")
+    p.CloneFlags = flag.String("cloneflags", "", "")
     flag.Parse()
     return p
 }
 
-func getRepos(p githubdl.Params) []githubdl.Repo {
+func getRepos(p githubdl.Params) []*githubdl.Repo {
     resp, err := http.Get(p.String())
     if err != nil {
         panic("HTTP Request Error - are you connected to the internet?")
@@ -57,26 +58,12 @@ func getRepos(p githubdl.Params) []githubdl.Repo {
     return r.Items
 }
 
-func getReadme(repo *githubdl.Repo) {
-    url := fmt.Sprintf("https://api.github.com/repos/%s/%s/readme", repo.Owner.Name, repo.Name)
-    resp, err := http.Get(url)
-    defer resp.Body.Close()
-    if err != nil {
-        // handle error
-    } else {
-        var r githubdl.Readme
-        body, _ := ioutil.ReadAll(resp.Body)
-        json.Unmarshal(body, &r)
-        data, _ := base64.StdEncoding.DecodeString(r.Content)
-        repo.Readme = string(data)
-    }
-}
-
-func viewRepos(repos []githubdl.Repo) {
+func viewRepos(repos []*githubdl.Repo, p githubdl.Params) {
     i := 0
+    line := 0
     width, height := termbox.Size()
 
-    printRepo(repos[0], width, height)
+    printRepo(repos[0], width, height, line)
 
     mainloop:
     for {
@@ -85,31 +72,50 @@ func viewRepos(repos []githubdl.Repo) {
             switch ev.Key {
             case termbox.KeyEsc, termbox.KeyCtrlC, termbox.KeyCtrlQ:
                 break mainloop
+
             case termbox.KeyArrowRight:
                 if(i < len(repos) - 1){
+                    line = 0
                     i += 1
-                    go printRepo(repos[i], width, height)
+                    printRepo(repos[i], width, height, line)
                 }
+
             case termbox.KeyArrowLeft:
                 if(i > 0){
+                    line = 0
                     i -= 1
-                    go printRepo(repos[i], width, height)
+                    printRepo(repos[i], width, height, line)
                 }
+
+            case termbox.KeyArrowDown, termbox.MouseWheelDown:
+                if(line + (height -4) < len(repos[i].Lines)){
+                    line += 1
+                    printRepo(repos[i], width, height, line)
+                }
+
+            case termbox.KeyArrowUp, termbox.MouseWheelUp:
+                if(line > 0){
+                    line -= 1
+                    printRepo(repos[i], width, height, line)
+                }
+
             case termbox.KeyCtrlG:
                 t := make(chan string)
-                go gitClone(repos[i].CloneUrl, t)
+                go gitClone(repos[i].CloneUrl, *p.CloneFlags, t)
                 go func() {
                     for str := range t {
-                        y := height - 5
-                        clearLine(y, width)
-                        // fmt.Printf(str)
-                        printStringAtXY(str, width / 2, y, width, true)
+                        clearLine(height - 1, width)
+                        printStringAtXY(str, 0, height - 1, width, true)
                         termbox.Flush()
                     }
                 }()
+
             case termbox.KeyCtrlR:
-                getReadme(&repos[i])
-                printRepo(repos[i], width, height)
+                go func(){
+                    repos[i].GetReadme()
+                    repos[i].GenerateDisplay(width)
+                    printRepo(repos[i], width, height, line)
+                }()
             }
         case termbox.EventError:
             panic(ev.Err)
@@ -117,82 +123,32 @@ func viewRepos(repos []githubdl.Repo) {
     }
 }
 
-func printRepo(repo githubdl.Repo, width int, height int) {
+func printRepo(repo *githubdl.Repo, width int, height int, startLine int) {
     termbox.Clear(termbox.ColorDefault, termbox.ColorDefault)
-    center := (width / 2) -1
+    center := (width / 2)
 
-    var y int
+    stringArr := repo.DisplaySlice(width, startLine)
 
-    y = 1
-
-     _, y = printStringAtXY(fmt.Sprintf("%v stars, %v watchers, %v forks",repo.Stars, repo.Watchers, repo.Forks), center, y, width, false)
-
-    y += 2
-
-    _, y = printStringAtXY(repo.Fullname, center, y, width, false)
-
-    y += 1
-
-    _, y = printStringAtXY(repo.Description, center, y, width, false)
-
-    y += 2
-
-    _, y = printStringAtXY(repo.HtmlUrl, center, y, width, false)
-
-    y += 2
-
-    if(len(repo.Language) == 0){
-        repo.Language = "Unknown"
-    }
-    
-    _, y = printStringAtXY(fmt.Sprintf("%v KB, %s", repo.Size, repo.Language), center, y, width, false)
-
-    y += 1
-
-    if(len(repo.Readme) > 0){
-        _, y = printStringAtXY(repo.Readme, center, y, width, false)
+    for i, s := range stringArr {
+        if(i >= height - 4){
+            break
+        }
+        printStringAtXY(s, center - (len(s) / 2), i + 1, width, false)
     }
 
-    y = height - 2
-
-    printStringAtXY("<- : Prev | -> : Next | Ctrl-G : Clone | Ctrl-C : Exit", center, y, width, false)
+    printStringAtXY("<- : Prev | -> : Next | Ctrl-G : Clone | Ctrl-C : Exit", 1, height - 2, width, false)
 
     termbox.Flush()
 }
 
 func printStringAtXY(s string, x int, y int, maxw int, override bool) (int, int) {
-    var stringArr []string
-    if(len(s) > maxw - 5){
-        maxw -= 10
-        for len(s) > 0 {
-            var l int
-            if(len(s) > maxw){
-                l = maxw
-            } else {
-                l = len(s)
-            }
-            stringArr = append(stringArr, s[:l])
-            s = s[l:]
-        }
-    } else {
-        stringArr = append(stringArr, s)
-    }
-
-    var ax, ay int
-    for j := 0; j < len(stringArr); j++ {
-        sc := len(stringArr[j])
-        ax = x - (sc / 2 - 1)
-        if(override == false){
-            ay = y + j
-        } else {
-            ay = y
-        }
-        for len(stringArr[j]) > 0 {
-            r, size := utf8.DecodeRuneInString(stringArr[j])
-            termbox.SetCell(ax, ay, r, termbox.ColorDefault, termbox.ColorDefault)
-            stringArr[j] = stringArr[j][size:]
-            ax += 1
-        }
+    ax := x
+    ay := y
+    for len(s) > 0 {
+        r, size := utf8.DecodeRuneInString(s)
+        termbox.SetCell(ax, ay, r, termbox.ColorDefault, termbox.ColorDefault)
+        s = s[size:]
+        ax += 1
     }
     return ax, ay
 }
@@ -204,8 +160,8 @@ func clearLine(y int, width int){
     termbox.Flush()
 }
 
-func gitClone(url string, read chan string) {
-    cmd := exec.Command("git", "clone", "--progress", url)
+func gitClone(url string, flags string, read chan string) {
+    cmd := exec.Command("git", "clone", "--progress", flags, url)
     stderr, _ := cmd.StderrPipe()
     scanner := bufio.NewScanner(stderr)
     cmd.Start()
