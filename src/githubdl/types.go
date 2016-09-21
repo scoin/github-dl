@@ -6,6 +6,7 @@ import (
     "fmt"
     "encoding/json"
     "encoding/base64"
+    "strings"
 )
 
 type Params struct {
@@ -22,7 +23,7 @@ type Params struct {
 }
 
 func (p Params) String() string {
-    s := fmt.Sprintf("https://api.github.com/search/repositories?q=%s",*p.Search)
+    s := fmt.Sprintf("https://api.github.com/search/repositories?q=%s",strings.Join(strings.Split(*p.Search, " "), "+"))
 
     if(len(*p.Search) > 0 && len(*p.In) > 0){
         s += fmt.Sprintf("+in:%s", *p.In)
