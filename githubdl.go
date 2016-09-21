@@ -24,7 +24,7 @@ func main() {
         termbox.SetInputMode(termbox.InputEsc)
         viewRepos(repos, p)
     } else {
-        fmt.Println("Usage: github-dl [-search <repository>] [-in <name,description,readme>] [-user <user>] [-lang <language>] [-stars <min..max>] [-size <min..max>] [-showforks <true/only>] [-sort <field>] [-order <asc/desc>]")
+        fmt.Println("Usage: github-dl [-search <terms>] [-in <name,description,readme>] [-user <user>] [-lang <language>] [-stars <min..max>] [-size <min..max>] [-showforks <true/only>] [-sort <field>] [-order <asc/desc>]")
     }
 }
 
