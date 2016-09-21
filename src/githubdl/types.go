@@ -20,7 +20,6 @@ type Params struct {
     User *string
     Stars *string
     In *string
-    CloneFlags *string
 }
 
 func (p Params) String() string {
@@ -81,25 +80,25 @@ type Repo struct {
 
 func initStringSlice(width int) func(string) []string {
     var stringSlice []string
-    i := 0
+    lineWidth := width
     return func(s string) []string {
-        lineWidth := width
-        if(len(s) > width - 5){
-        lineWidth -= 10
-            for len(s) > 0 {
-                var l int
-                if(len(s) > lineWidth){
-                    l = lineWidth
-                } else {
-                    l = len(s)
-                }
-                stringSlice = append(stringSlice, s[:l])
-                s = s[l:]
-                i += 1
+        last := 0
+        stop := -1
+        for i, c := range s {
+
+            if((i - last) == lineWidth - 8){
+                stop = i
+            } else if(c == '\n'){
+                stop = i
+            } else if(i == len(s) - 1){
+                stop = len(s)
             }
-        } else {
-            stringSlice = append(stringSlice, s)
-            i += 1
+
+            if(stop >= 0){
+                stringSlice = append(stringSlice, s[last:stop])
+                last = stop
+                stop = -1
+            }
         }
         return stringSlice
     }
@@ -108,13 +107,13 @@ func initStringSlice(width int) func(string) []string {
 func (repo *Repo) GenerateDisplay(lineWidth int){
     appendString := initStringSlice(lineWidth)
     appendString(fmt.Sprintf("%v stars, %v watchers, %v forks",repo.Stars, repo.Watchers, repo.Forks))
-    appendString("")
+    appendString("\n")
     appendString(repo.Fullname)
     appendString(repo.Description)
-    appendString("")
+    appendString("\n")
     appendString(repo.HtmlUrl)
     appendString(fmt.Sprintf("%v KB, %s", repo.Size, repo.Language))
-    appendString("")
+    appendString("\n")
     stringSlice := appendString(repo.Readme)
     repo.Lines = stringSlice
 }
