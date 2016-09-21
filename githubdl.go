@@ -104,7 +104,7 @@ func viewRepos(repos []*githubdl.Repo, p githubdl.Params) {
                 go func() {
                     for str := range t {
                         clearLine(height - 1, width)
-                        printStringAtXY(str, 0, height - 1, width, true)
+                        printStringAtXY(str, 0, height - 1, termbox.ColorBlack, termbox.ColorWhite, true)
                         termbox.Flush()
                     }
                 }()
@@ -126,27 +126,24 @@ func printRepo(repo *githubdl.Repo, width int, height int, startLine int) {
     termbox.Clear(termbox.ColorDefault, termbox.ColorDefault)
     center := (width / 2)
 
-    stringArr := repo.DisplaySlice(width, startLine)
+    stringArr := repo.DisplaySlice(width, startLine, (startLine + height - 4))
 
     for i, s := range stringArr {
-        if(i >= height - 4){
-            break
-        }
-        printStringAtXY(s, center - (len(s) / 2), i + 1, width, false)
+        printStringAtXY(s, center - (len(s) / 2), i + 1, termbox.ColorDefault, termbox.ColorDefault, false)
     }
 
     menu := `<- : Prev | -> : Next | ^R : Readme | ^G : Clone | ^C : Exit`
-    printStringAtXY(menu, center - (len(menu) / 2), height - 2, width, false)
+    printStringAtXY(menu, center - (len(menu) / 2), height - 2, termbox.ColorBlack, termbox.ColorWhite, false)
 
     termbox.Flush()
 }
 
-func printStringAtXY(s string, x int, y int, maxw int, override bool) (int, int) {
+func printStringAtXY(s string, x int, y int, fg termbox.Attribute, bg termbox.Attribute, override bool) (int, int) {
     ax := x
     ay := y
     for len(s) > 0 {
         r, size := utf8.DecodeRuneInString(s)
-        termbox.SetCell(ax, ay, r, termbox.ColorDefault, termbox.ColorDefault)
+        termbox.SetCell(ax, ay, r, fg, bg)
         s = s[size:]
         ax += 1
     }
@@ -172,7 +169,4 @@ func gitClone(url string, read chan string) {
     }
     cmd.Wait()
     close(read)
-    // if err != nil {
-    //     // log.Fatal(err)
-    // }
 }

@@ -6,7 +6,6 @@ import (
     "fmt"
     "encoding/json"
     "encoding/base64"
-    "strip"
 )
 
 type Params struct {
@@ -45,7 +44,7 @@ func (p Params) String() string {
         s += fmt.Sprintf("+fork:%s", *p.Fork)
     }
 
-    if(len(*p.Fork) > 0){
+    if(len(*p.Stars) > 0){
         s += fmt.Sprintf("+stars:%s", *p.Stars)
     }
 
@@ -86,10 +85,9 @@ func initStringSlice(width int) func(string) []string {
         stop := -1
         for i, c := range s {
 
-            if((i - last) == lineWidth - 8){
+            if((i - last) == lineWidth - 8 || c == '\n'){
                 stop = i
-            } else if(c == '\n'){
-                stop = i
+
             } else if(i == len(s) - 1){
                 stop = len(s)
             }
@@ -118,11 +116,14 @@ func (repo *Repo) GenerateDisplay(lineWidth int){
     repo.Lines = stringSlice
 }
 
-func (repo *Repo) DisplaySlice(lineWidth int, start int) []string {
+func (repo *Repo) DisplaySlice(lineWidth int, start int, end int) []string {
     if(len(repo.Lines) == 0){
         repo.GenerateDisplay(lineWidth)
-    } 
-    return repo.Lines[start:]
+    }
+    if(end >= len(repo.Lines)){
+        end = len(repo.Lines)
+    }
+    return repo.Lines[start:end]
 }
 
 func (repo *Repo) GetReadme() {
@@ -137,7 +138,7 @@ func (repo *Repo) GetReadme() {
         json.Unmarshal(body, &r)
         data, _ := base64.StdEncoding.DecodeString(r.Content)
 
-        repo.Readme = strip.Strip(string(data))
+        repo.Readme = string(data)
     }
 }
 
