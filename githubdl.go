@@ -40,7 +40,6 @@ func getFlagParams() githubdl.Params {
     p.User = flag.String("user", "", "")
     p.Stars = flag.String("stars", "", "")
     p.In = flag.String("in", "", "")
-    p.CloneFlags = flag.String("cloneflags", "", "")
     flag.Parse()
     return p
 }
@@ -101,7 +100,7 @@ func viewRepos(repos []*githubdl.Repo, p githubdl.Params) {
 
             case termbox.KeyCtrlG:
                 t := make(chan string)
-                go gitClone(repos[i].CloneUrl, *p.CloneFlags, t)
+                go gitClone(repos[i].CloneUrl, t)
                 go func() {
                     for str := range t {
                         clearLine(height - 1, width)
@@ -136,7 +135,8 @@ func printRepo(repo *githubdl.Repo, width int, height int, startLine int) {
         printStringAtXY(s, center - (len(s) / 2), i + 1, width, false)
     }
 
-    printStringAtXY("<- : Prev | -> : Next | Ctrl-G : Clone | Ctrl-C : Exit", 1, height - 2, width, false)
+    menu := `<- : Prev | -> : Next | ^R : Readme | ^G : Clone | ^C : Exit`
+    printStringAtXY(menu, center - (len(menu) / 2), height - 2, width, false)
 
     termbox.Flush()
 }
@@ -160,8 +160,8 @@ func clearLine(y int, width int){
     termbox.Flush()
 }
 
-func gitClone(url string, flags string, read chan string) {
-    cmd := exec.Command("git", "clone", "--progress", flags, url)
+func gitClone(url string, read chan string) {
+    cmd := exec.Command("git", "clone", "--progress", url)
     stderr, _ := cmd.StderrPipe()
     scanner := bufio.NewScanner(stderr)
     cmd.Start()
