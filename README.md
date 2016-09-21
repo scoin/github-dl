@@ -1,5 +1,7 @@
 Github-DL
 ==========
+![Demo](http://i.imgur.com/MAd6RE1.gif)
+
 
 Github-DL is a command line search and clone tool of Github repositories, using the open [Github API Search Repositories Endpoint](https://developer.github.com/v3/search/#search-repositories).
 
