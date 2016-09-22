@@ -18,7 +18,9 @@ github-dl [-search <terms>] [-in <name,description,readme>] [-user <user>] [-lan
 To run the code locally:
 
 ```shell
-git clone
+git clone https://github.com/scoin/github-dl.git
+cd github-dl/
+export GOPATH=$PWD
 go get github.com/nsf/termbox-go
 go run githubl.go [parameters]
 ```
